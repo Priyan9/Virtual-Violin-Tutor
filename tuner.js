@@ -5,26 +5,25 @@ const instruction = document.querySelector('.instruction');
 
 let currentFrequency = 0;
 let targetFrequency = 0;
+let isRecording = false;
 let audioContext;
 let analyser;
-let isRecording = false;
-let waveformData = new Float32Array(2048); // Array for waveform data
+const FFT_SIZE = 2048; // Adjust the FFT size as needed for your application
 
 // Initialize audio context and start microphone access
 navigator.mediaDevices.getUserMedia({ audio: true })
   .then(stream => {
     audioContext = new AudioContext();
-    const source = audioContext.createMediaStreamSource(stream);
     analyser = audioContext.createAnalyser();
-    analyser.fftSize = 4096; // Set FFT size for better frequency resolution
+    analyser.fftSize = FFT_SIZE;
+    const source = audioContext.createMediaStreamSource(stream);
     source.connect(analyser);
-    updateTuner(); // Start updating tuner
+    updateTuner();
   })
   .catch(error => {
     console.error('Error accessing microphone:', error);
   });
 
-// Event listeners for note selection
 notes.forEach((note, index) => {
   note.addEventListener('click', () => {
     selectString(index);
@@ -37,14 +36,17 @@ function selectString(index) {
 
   const frequencies = [392.0, 293.7, 440.0, 329.6];
   targetFrequency = frequencies[index];
-  playNote(targetFrequency);
   instruction.textContent = 'Play the string and tune it';
   isRecording = true;
 }
 
 function updateTuner() {
   if (isRecording) {
-    analyser.getFloatTimeDomainData(waveformData);
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Float32Array(bufferLength);
+    analyser.getFloatTimeDomainData(dataArray);
+
+    const waveformData = Array.from(dataArray);
     const dominantFrequency = findDominantFrequency(waveformData);
     updateNeedle(dominantFrequency);
     updateFrequencyDisplay(dominantFrequency);
@@ -78,32 +80,43 @@ function updateInstruction(currentFrequency, targetFrequency) {
 }
 
 function findDominantFrequency(waveformData) {
-  const zerocrossings = [];
-  let previousValue = 0;
-  let dominantFrequency = 0;
+  const fft = new FFT(FFT_SIZE);
+  fft.forward(waveformData);
 
-  for (let i = 0; i < waveformData.length; i++) {
-    if ((previousValue * waveformData[i]) < 0) {
-      zerocrossings.push(i);
+  // Find the peak frequency
+  let peakFrequency = 0;
+  let peakAmplitude = 0;
+  for (let i = 0; i < FFT_SIZE / 2; i++) {
+    const frequency = audioContext.sampleRate * i / FFT_SIZE;
+    const amplitude = Math.abs(fft.spectrum[i]);
+    if (amplitude > peakAmplitude) {
+      peakAmplitude = amplitude;
+      peakFrequency = frequency;
     }
-    previousValue = waveformData[i];
   }
-
-  if (zerocrossings.length > 1) {
-    const timeBetweenZeroCrossings = (zerocrossings[1] - zerocrossings[0]) / audioContext.sampleRate;
-    dominantFrequency = 1 / (2 * timeBetweenZeroCrossings);
-  }
-
-  return dominantFrequency;
+  return peakFrequency;
 }
 
 function playNote(frequency) {
+  const duration = 1000; // Duration of the note in milliseconds
+
   const oscillator = audioContext.createOscillator();
-  oscillator.type = 'sine';
+  oscillator.type = 'sine'; // You can change the oscillator type if needed
   oscillator.frequency.value = frequency;
-  oscillator.connect(audioContext.destination);
+
+  const gainNode = audioContext.createGain();
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+
+  // Start the oscillator
   oscillator.start();
+
+  // Fade out the note after the duration
+  gainNode.gain.setValueAtTime(1, audioContext.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration / 1000);
+
+  // Stop the oscillator after the duration
   setTimeout(() => {
     oscillator.stop();
-  }, 1000);
+  }, duration);
 }
