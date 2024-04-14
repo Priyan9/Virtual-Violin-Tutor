@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>VV Tutor</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background-color: #333;
+      color: #fff;
+      padding: 20px;
+      text-align: center;
+    }
+    nav {
+      background-color: #f1f1f1;
+      padding: 10px;
+      text-align: center;
+    }
+    nav a {
+      color: #333;
+      text-decoration: none;
+      padding: 10px;
+      margin: 5px;
+    }
+    nav a:hover {
+      background-color: #333;
+      color: #fff;
+    }
+    main {
+      padding: 20px;
+    }
+    #video-container {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    #video-container video {
+      max-width: 100%;
+      height: auto;
+    }
+    #result-container {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    #result-container p {
+      font-size: 18px;
+      font-weight: bold;
+    }
+    footer {
+      background-color: #333;
+      color: #fff;
+      padding: 10px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>VV Tutor</h1>
+  </header>
+  <nav>
+    <a href="#">Home</a>
+    <a href="tuner.html">Tune Violin</a>
+    <a href="#">Adjust Posture</a>
+    <a href="#">Your Progress</a>
+    <a href="#">Lessons</a>
+  </nav>
+  <main>
+    <div id="video-container">
+      <video id="video-feed" width="640" height="480" autoplay></video>
+    </div>
+    <div id="result-container">
+      <p id="result-text">Analyzing posture...</p>
+    </div>
+    <script>
+      // Get the video element
+const videoElement = document.getElementById('video-feed');
+
+// Get the result text element
+const resultText = document.getElementById('result-text');
+
+// Check if the browser supports the getUserMedia API
+if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+  // Request access to the camera
+  navigator.mediaDevices.getUserMedia({ video: true })
+    .then(function(stream) {
+      // Set the video source to the camera stream
+      videoElement.srcObject = stream;
+
+      // Set up the posture analysis
+      const poseNet = ml5.poseNet(videoElement, modelLoaded);
+      poseNet.on('pose', function(poses) {
+        if (poses.length > 0) {
+          const pose = poses[0].pose;
+          const isCorrectPosture = analyzePosture(pose);
+          displayResult(isCorrectPosture);
+        }
+      });
+    })
+    .catch(function(error) {
+      console.error('Error accessing the camera:', error);
+    });
+} else {
+  console.error('Your browser does not support the getUserMedia API.');
+}
+
+// Function to analyze the violin posture
+function analyzePosture(pose) {
+  // Implement your posture analysis logic here
+  // This could involve checking the position and angles of the player's body, arms, and instrument
+  // You can use the pose object, which contains the detected keypoints and their coordinates
+
+  // For example, you could check if the player's head is upright, their shoulders are relaxed, and their violin is properly positioned
+  const isHeadUpright = pose.nose.y < pose.leftShoulder.y && pose.nose.y < pose.rightShoulder.y;
+  const areShoulderRelaxed = pose.leftShoulder.y < pose.leftElbow.y && pose.rightShoulder.y < pose.rightElbow.y;
+  const isViolinPositioned = pose.leftWrist.x > pose.leftShoulder.x && pose.rightWrist.x < pose.rightShoulder.x;
+
+  return isHeadUpright && areShoulderRelaxed && isViolinPositioned;
+}
+
+// Function to display the result of the posture analysis
+function displayResult(isCorrectPosture) {
+  if (isCorrectPosture) {
+    resultText.textContent = 'Excellent posture!';
+  } else {
+    resultText.textContent = 'Posture needs improvement. Please adjust your position.';
+  }
+}
+
+// Function called when the PoseNet model is loaded
+function modelLoaded() {
+  console.log('PoseNet model loaded');
+}
+    </script>
+  </main>
+  <footer>
+    <p>&copy; 2024 Violin Posture Analyzer. All rights reserved.</p>
+  </footer>
+</body>
+</html>
