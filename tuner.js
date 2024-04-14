@@ -8,19 +8,23 @@ let targetFrequency = 0;
 let audioContext;
 let analyser;
 let isRecording = false;
+let waveformData = new Float32Array(2048); // Array for waveform data
 
+// Initialize audio context and start microphone access
 navigator.mediaDevices.getUserMedia({ audio: true })
   .then(stream => {
     audioContext = new AudioContext();
     const source = audioContext.createMediaStreamSource(stream);
     analyser = audioContext.createAnalyser();
+    analyser.fftSize = 4096; // Set FFT size for better frequency resolution
     source.connect(analyser);
-    updateTuner();
+    updateTuner(); // Start updating tuner
   })
   .catch(error => {
     console.error('Error accessing microphone:', error);
   });
 
+// Event listeners for note selection
 notes.forEach((note, index) => {
   note.addEventListener('click', () => {
     selectString(index);
@@ -86,7 +90,7 @@ function findDominantFrequency(waveformData) {
   }
 
   if (zerocrossings.length > 1) {
-    const timeBetweenZeroCrossings = (zerocrossings[1] - zerocrossings[0]) / analyser.fftSize;
+    const timeBetweenZeroCrossings = (zerocrossings[1] - zerocrossings[0]) / audioContext.sampleRate;
     dominantFrequency = 1 / (2 * timeBetweenZeroCrossings);
   }
 
